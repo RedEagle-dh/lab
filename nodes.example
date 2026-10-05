@@ -1,0 +1,6 @@
+# lab node inventory: <name> <target> <description...>
+# target: local | [user@]host[:port]   (user defaults to root; non-root users need passwordless sudo)
+# The description is shown in `lab` output, so tell the agent what runs where.
+server   root@server.home.lan     x86 server: Docker, ZFS, main services
+pi5      local                    Pi 5 (this node): Home Assistant, Prometheus, Grafana
+dns      pi@192.168.1.2           Pi 3B+: Pi-hole (primary LAN DNS) - nothing else runs here
