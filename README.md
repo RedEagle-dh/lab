@@ -30,7 +30,7 @@ lab put app.yml pi5:/etc/app.yml  /  lab get dns:/etc/hosts
 Build (needs only Docker, no local Go toolchain):
 
 ```sh
-./build.sh          # -> dist/lab-linux-amd64, dist/lab-linux-arm64
+./build.sh          # -> dist/lab-{linux,darwin}-{amd64,arm64}
 ```
 
 Then on the machine the agent runs on (ideally one that stays up when your main server is down):

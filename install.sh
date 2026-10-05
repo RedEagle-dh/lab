@@ -1,14 +1,20 @@
 #!/bin/sh
-# Installs lab on this machine (meant for the Pi 5 that runs the agent).
+# Installs lab on this machine (Linux or macOS).
 # Usage: ./install.sh            (run as the user the agent runs as, not root)
 set -e
 cd "$(dirname "$0")"
 
+case "$(uname -s)" in
+  Linux)  os=linux ;;
+  Darwin) os=darwin ;;
+  *) echo "unsupported OS $(uname -s)"; exit 1 ;;
+esac
 case "$(uname -m)" in
-  aarch64|arm64) bin=dist/lab-linux-arm64 ;;
-  x86_64)        bin=dist/lab-linux-amd64 ;;
+  aarch64|arm64) arch=arm64 ;;
+  x86_64)        arch=amd64 ;;
   *) echo "unsupported arch $(uname -m)"; exit 1 ;;
 esac
+bin=dist/lab-$os-$arch
 sudo install -m 755 "$bin" /usr/local/bin/lab
 
 mkdir -p ~/.config/lab
