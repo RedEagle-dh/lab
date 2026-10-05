@@ -419,15 +419,34 @@ func list(nodes []node) int {
 	}
 	wg.Wait()
 	rows := [][]string{{"NODE", "STATE", "LOAD", "MEM", "DISK/", "UP", "DESCRIPTION"}}
+	var errs []string
 	for i, n := range nodes {
 		f := strings.Fields(res[i].out)
 		if res[i].code == 0 && len(f) == 4 {
 			rows = append(rows, []string{n.name, "up", f[0], f[1], f[2], f[3], n.desc})
-		} else {
-			rows = append(rows, []string{n.name, "DOWN", "-", "-", "-", "-", n.desc})
+			continue
 		}
+		rows = append(rows, []string{n.name, "DOWN", "-", "-", "-", "-", n.desc})
+		reason := strings.TrimSpace(res[i].out)
+		if j := strings.LastIndexByte(reason, '\n'); j >= 0 {
+			reason = reason[j+1:]
+		}
+		if reason == "" {
+			reason = status(res[i], o, target{node: n})
+		}
+		where := "local"
+		if !n.local {
+			where = n.user + "@" + n.host
+		}
+		errs = append(errs, fmt.Sprintf("%s (%s): %s", n.name, where, reason))
 	}
 	printTable(rows)
+	if len(errs) > 0 {
+		fmt.Println()
+		for _, e := range errs {
+			fmt.Println(e)
+		}
+	}
 	return 0
 }
 
