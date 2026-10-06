@@ -33,7 +33,8 @@ lab deploy server /etc/foo.conf  upload the repo copy if it differs (backup, own
 - **Safe uploads:** `put` stages the data first, skips identical content, keeps
   `<path>.bak.<YYYY-MM-DD>` of a replaced file and writes in place (owner, mode and inode
   stay, so Docker single-file bind mounts see the change). A new file gets the parent
-  directory's owner and the local file's mode. `--no-backup` turns the backup off.
+  directory's owner and the local file's mode; missing directories are created with the
+  owner of the nearest existing one (not root). `--no-backup` turns the backup off.
 - **Repo as source of truth:** with a `nodes/<node>/rootfs/` tree (found in the current
   directory or a parent), `lab diff <node> [path...]` shows unified diffs between the repo
   and the node in one round trip, and `lab deploy <node> <path...>` uploads what differs,

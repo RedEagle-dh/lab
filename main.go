@@ -48,7 +48,8 @@ more than one line or nested quotes: write a script file and use lab run instead
 stdin is forwarded: lab pi5 'wc -l' < file   (use put for files)
 put/deploy write an existing file in place (keeps owner, mode and inode) after backing it up
   as <path>.bak.<YYYY-MM-DD>; unchanged files are skipped; a new file gets its parent
-  directory's owner and the local file's mode.
+  directory's owner and the local file's mode, new directories the owner of the nearest
+  existing one.
 diff/deploy map nodes/<node>/rootfs/<path> (current dir or a parent) to <path> on the node;
   give paths as /etc/foo or nodes/<node>/rootfs/etc/foo; *.example files are skipped.
   deploy runs systemctl daemon-reload after changing files under /etc/systemd/.
@@ -88,9 +89,17 @@ echo "listening tcp: $(ss -tlnH 2>/dev/null | awk '{n=split($4,a,":"); print a[n
 // putScript writes stdin to $1. It stages the data in a temp file first, so a broken
 // transfer never truncates the target, then skips identical content, backs up the old
 // file and writes in place: owner, mode and inode stay (Docker single-file bind mounts
-// follow the inode). A new file gets the parent directory's owner and mode $2.
+// follow the inode). A new file gets the parent directory's owner and mode $2; new
+// directories get the owner of the nearest existing ancestor instead of root.
 const putScript = `p=$1; m=$2; nb=$3
-d=$(dirname "$p"); mkdir -p "$d" || exit 1
+d=$(dirname "$p")
+a=$d; while [ ! -e "$a" ]; do a=$(dirname "$a"); done
+if [ "$a" != "$d" ]; then
+  o=$(stat -c %u:%g "$a")
+  mkdir -p "$d" || exit 1
+  x=$d; while [ "$x" != "$a" ]; do chown "$o" "$x" || exit 1; x=$(dirname "$x"); done
+  echo "lab-put mkdir $d"
+fi
 t=$(mktemp) || exit 1
 trap 'rm -f "$t"' EXIT
 cat > "$t" || exit 1
@@ -773,6 +782,7 @@ type putResult struct {
 	state  string // created, updated, unchanged
 	backup string
 	owner  string
+	mkdir  string // directory that had to be created, if any
 }
 
 // putTo writes data to path on t with putScript semantics.
@@ -791,6 +801,8 @@ func putTo(t target, path string, data io.Reader, mode fs.FileMode, o opts, labe
 			switch f[1] {
 			case "backup":
 				pr.backup = strings.TrimPrefix(l, "lab-put backup ")
+			case "mkdir":
+				pr.mkdir = strings.TrimPrefix(l, "lab-put mkdir ")
 			case "created":
 				pr.state = "created"
 				if len(f) > 2 {
@@ -817,7 +829,11 @@ func describePut(pr putResult, where string, n int64, mode fs.FileMode) string {
 	case "unchanged":
 		return fmt.Sprintf("unchanged: %s (identical, %d bytes)", where, n)
 	case "created":
-		return fmt.Sprintf("created %s (%d bytes, owner %s, mode %o)", where, n, pr.owner, mode.Perm())
+		s := fmt.Sprintf("created %s (%d bytes, owner %s, mode %o)", where, n, pr.owner, mode.Perm())
+		if pr.mkdir != "" {
+			s += ", new dir " + pr.mkdir
+		}
+		return s
 	default:
 		b := "no backup"
 		if pr.backup != "" {
